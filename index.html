@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>现货均价计算器</title>
     <style>
-        /* 保留您原有的样式 */
         body {
             font-family: Arial, sans-serif;
             margin: 20px;
@@ -171,9 +170,9 @@
             newRecord.className = 'record';
             newRecord.innerHTML = `
                 <span class="record-number">${recordCount}</span>
-                <input type="number" class="price" placeholder="价格 (USD)" value="${data.price || ''}" oninput="calculate(); saveState();">
-                <input type="number" class="quantity" placeholder="买入数量${currency ? ` (${currency})` : ''}" value="${data.quantity || ''}" oninput="calculate(); saveState();">
-                <input type="number" class="amount" placeholder="成交金额 (USD)" value="${data.amount || ''}" oninput="calculate(); saveState();">
+                <input type="number" class="price" placeholder="价格 (USD)" value="${data.price || ''}" oninput="handleInput(this, 'price');">
+                <input type="number" class="quantity" placeholder="买入数量${currency ? ` (${currency})` : ''}" value="${data.quantity || ''}" oninput="handleInput(this, 'quantity');">
+                <input type="number" class="amount" placeholder="成交金额 (USD)" value="${data.amount || ''}" oninput="handleInput(this, 'amount');">
                 <button class="delete-record" onclick="deleteRecord(this); saveState();">删除</button>
             `;
             document.getElementById('records').appendChild(newRecord);
@@ -194,6 +193,22 @@
             recordCount = document.querySelectorAll('.record').length;
         }
 
+        function handleInput(input, type) {
+            const record = input.parentElement;
+            const price = parseFloat(record.querySelector('.price').value) || 0;
+            const quantity = parseFloat(record.querySelector('.quantity').value) || 0;
+            const amount = parseFloat(record.querySelector('.amount').value) || 0;
+
+            if (type === 'price' || type === 'quantity') {
+                record.querySelector('.amount').value = price && quantity ? formatNumber(price * quantity) : '';
+            } else if (type === 'amount') {
+                record.querySelector('.quantity').value = price && amount ? formatNumber(amount / price) : '';
+            }
+
+            saveState();
+            calculate();
+        }
+
         function calculate() {
             let totalAmount = 0;
             let totalQuantity = 0;
@@ -207,12 +222,16 @@
                 totalQuantity += quantity;
             });
 
-            const averagePrice = totalQuantity ? (totalAmount / totalQuantity).toFixed(8) : '-';
-            const stopLoss = maxLoss && totalQuantity ? (averagePrice - maxLoss / totalQuantity).toFixed(8) : '无效';
+            const averagePrice = totalQuantity ? formatNumber(totalAmount / totalQuantity) : '-';
+            const stopLoss = maxLoss && totalQuantity ? formatNumber(averagePrice - maxLoss / totalQuantity) : '无效';
 
-            document.getElementById('totalAmount').textContent = totalAmount.toFixed(8);
+            document.getElementById('totalAmount').textContent = formatNumber(totalAmount);
             document.getElementById('averagePrice').textContent = averagePrice;
             document.getElementById('stopLoss').textContent = stopLoss;
+        }
+
+        function formatNumber(num) {
+            return Number.isInteger(num) ? num : num.toFixed(8);
         }
 
         function updateCurrency() {
