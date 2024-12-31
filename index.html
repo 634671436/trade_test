@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>现货均价计算器</title>
     <style>
+        /* 保留您原有的样式 */
         body {
             font-family: Arial, sans-serif;
             margin: 20px;
@@ -40,23 +41,50 @@
             border-radius: 3px;
             font-size: 14px;
         }
-        .header-row, .record {
+        .header-row {
+            display: flex;
+            margin-bottom: 5px;
+            text-align: center;
+        }
+        .header-row div {
+            flex: 1;
+        }
+        .record {
             display: flex;
             align-items: center;
             gap: 10px;
             margin-bottom: 10px;
+            border: 1px dashed #ccc;
+            padding: 10px;
+            border-radius: 5px;
         }
-        .header-row div, .record-number {
-            text-align: center;
-            width: 20%;
+        .record-number {
+            font-weight: bold;
+            width: 20px;
         }
-        .delete-record {
-            background: #ff4d4f;
-            color: white;
-            border: none;
+        .record input {
+            flex: 1;
+            padding: 8px;
+            border: 1px solid #ccc;
             border-radius: 3px;
-            padding: 5px;
-            cursor: pointer;
+            font-size: 14px;
+            text-align: center;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 10px;
+            background: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        .result p {
+            font-size: 14px;
+            font-weight: normal;
+        }
+        .result #stopLoss {
+            color: red;
+            font-weight: bold;
         }
         .add-record {
             display: block;
@@ -69,19 +97,13 @@
             border-radius: 5px;
             cursor: pointer;
         }
-        .result {
-            margin-top: 20px;
-            padding: 10px;
-            background: #f9f9f9;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-        }
-        .result p {
-            margin: 5px 0;
-        }
-        .result #stopLoss {
-            color: red;
-            font-weight: bold;
+        .delete-record {
+            background: #ff4d4f;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            padding: 5px;
+            cursor: pointer;
         }
     </style>
 </head>
@@ -91,12 +113,12 @@
 
         <div class="form-group">
             <label for="currency">币种 (可选):</label>
-            <input type="text" id="currency" placeholder="请输入币种" oninput="updateCurrency()">
+            <input type="text" id="currency" placeholder="请输入币种" oninput="updateCurrency(); saveState();">
         </div>
 
         <div class="form-group">
-            <label for="maxLoss">最大承受损失金额 (USD):</label>
-            <input type="number" id="maxLoss" placeholder="请输入最大承受损失金额">
+            <label for="maxLoss">最大承受受损金额 (USD):</label>
+            <input type="number" id="maxLoss" placeholder="请输入最大承受受损金额" oninput="saveState();">
         </div>
 
         <div class="header-row">
@@ -107,7 +129,7 @@
 
         <div id="records"></div>
 
-        <button class="add-record">+ 添加记录</button>
+        <button class="add-record" onclick="addRecord(); saveState();">+ 添加记录</button>
 
         <div class="result">
             <p>买入总金额 (USD): <span id="totalAmount">-</span></p>
@@ -118,81 +140,59 @@
 
     <script>
         let recordCount = 0;
-        const localStorageKey = 'spotCalculatorRecords';
+        const storageKey = 'spotCalculatorData';
 
-        function loadRecords() {
-            const storedRecords = JSON.parse(localStorage.getItem(localStorageKey)) || [];
-            storedRecords.forEach(record => addRecord(record));
-        }
-
-        function saveRecords() {
-            const records = [];
-            document.querySelectorAll('.record').forEach(record => {
-                records.push({
+        function saveState() {
+            const data = {
+                currency: document.getElementById('currency').value,
+                maxLoss: document.getElementById('maxLoss').value,
+                records: Array.from(document.querySelectorAll('.record')).map(record => ({
                     price: record.querySelector('.price').value,
                     quantity: record.querySelector('.quantity').value,
-                    amount: record.querySelector('.amount').value,
-                });
-            });
-            localStorage.setItem(localStorageKey, JSON.stringify(records));
+                    amount: record.querySelector('.amount').value
+                }))
+            };
+            localStorage.setItem(storageKey, JSON.stringify(data));
+        }
+
+        function loadState() {
+            const savedData = JSON.parse(localStorage.getItem(storageKey));
+            if (!savedData) return;
+
+            document.getElementById('currency').value = savedData.currency || '';
+            document.getElementById('maxLoss').value = savedData.maxLoss || '';
+            savedData.records.forEach(record => addRecord(record));
         }
 
         function addRecord(data = {}) {
             recordCount++;
-            const record = document.createElement('div');
-            record.className = 'record';
-            record.innerHTML = `
-                <input type="number" class="price" placeholder="价格 (USD)" value="${data.price || ''}">
-                <input type="number" class="quantity" placeholder="买入数量" value="${data.quantity || ''}">
-                <input type="number" class="amount" placeholder="成交金额 (USD)" value="${data.amount || ''}">
-                <button class="delete-record" onclick="deleteRecord(this)">删除</button>
+            const currency = document.getElementById('currency').value || '';
+            const newRecord = document.createElement('div');
+            newRecord.className = 'record';
+            newRecord.innerHTML = `
+                <span class="record-number">${recordCount}</span>
+                <input type="number" class="price" placeholder="价格 (USD)" value="${data.price || ''}" oninput="calculate(); saveState();">
+                <input type="number" class="quantity" placeholder="买入数量${currency ? ` (${currency})` : ''}" value="${data.quantity || ''}" oninput="calculate(); saveState();">
+                <input type="number" class="amount" placeholder="成交金额 (USD)" value="${data.amount || ''}" oninput="calculate(); saveState();">
+                <button class="delete-record" onclick="deleteRecord(this); saveState();">删除</button>
             `;
-            document.getElementById('records').appendChild(record);
-
-            addEventListeners(record);
-        }
-
-        function deleteRecord(button) {
-            const record = button.parentElement;
-            record.remove();
-            saveRecords();
+            document.getElementById('records').appendChild(newRecord);
             calculate();
         }
 
-        function addEventListeners(record) {
-            const price = record.querySelector('.price');
-            const quantity = record.querySelector('.quantity');
-            const amount = record.querySelector('.amount');
-
-            price.addEventListener('input', () => {
-                if (price.value && quantity.value) {
-                    amount.value = (parseFloat(price.value) * parseFloat(quantity.value)).toFixed(8);
-                }
-                saveRecords();
-                calculate();
-            });
-
-            quantity.addEventListener('input', () => {
-                if (price.value && quantity.value) {
-                    amount.value = (parseFloat(price.value) * parseFloat(quantity.value)).toFixed(8);
-                }
-                saveRecords();
-                calculate();
-            });
-
-            amount.addEventListener('input', () => {
-                if (price.value && amount.value) {
-                    quantity.value = (parseFloat(amount.value) / parseFloat(price.value)).toFixed(8);
-                }
-                saveRecords();
-                calculate();
-            });
+        function deleteRecord(button) {
+            button.parentElement.remove();
+            updateRecordNumbers();
+            calculate();
+            saveState();
         }
 
-        document.querySelector('.add-record').addEventListener('click', () => {
-            addRecord();
-            saveRecords();
-        });
+        function updateRecordNumbers() {
+            Array.from(document.querySelectorAll('.record-number')).forEach((el, index) => {
+                el.textContent = index + 1;
+            });
+            recordCount = document.querySelectorAll('.record').length;
+        }
 
         function calculate() {
             let totalAmount = 0;
@@ -223,8 +223,10 @@
             });
         }
 
-        loadRecords();
-        calculate();
+        document.addEventListener('DOMContentLoaded', () => {
+            loadState();
+            calculate();
+        });
     </script>
 </body>
 </html>
