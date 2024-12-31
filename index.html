@@ -244,6 +244,7 @@
 
         document.addEventListener('DOMContentLoaded', () => {
             loadState();
+            if (recordCount === 0) addRecord(); // 默认添加一行空记录
             calculate();
         });
     </script>
