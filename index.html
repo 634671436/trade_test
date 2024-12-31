@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>现货均价计算器</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            padding: 0;
+        }
+        .container {
+            max-width: 800px;
+            margin: auto;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        .container h1 {
+            text-align: center;
+            font-size: 24px;
+            font-weight: bold;
+        }
+        .form-group {
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .form-group label {
+            margin-right: 10px;
+            flex: 1;
+        }
+        .form-group input {
+            flex: 2;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            font-size: 14px;
+        }
+        .header-row {
+            display: flex;
+            margin-bottom: 5px;
+            text-align: center;
+        }
+        .header-row div {
+            flex: 1;
+        }
+        .record {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+            border: 1px dashed #ccc;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .record-number {
+            font-weight: bold;
+            width: 20px;
+        }
+        .record input {
+            flex: 1;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            font-size: 14px;
+            text-align: center;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 10px;
+            background: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        .result p {
+            font-size: 14px;
+            font-weight: normal;
+        }
+        .result #stopLoss {
+            color: red;
+            font-weight: bold;
+        }
+        .add-record {
+            display: block;
+            margin: 10px 0;
+            padding: 8px;
+            background: #007bff;
+            color: white;
+            text-align: center;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .delete-record {
+            background: #ff4d4f;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            padding: 5px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>现货均价计算器</h1>
+
+        <div class="form-group">
+            <label for="currency">币种 (可选):</label>
+            <input type="text" id="currency" placeholder="请输入币种" oninput="updateCurrency()">
+        </div>
+
+        <div class="form-group">
+            <label for="maxLoss">最大承受受损金额 (USD):</label>
+            <input type="number" id="maxLoss" placeholder="请输入最大承受受损金额">
+        </div>
+
+        <div class="header-row">
+            <div>价格 (USD)</div>
+            <div>买入数量</div>
+            <div>成交金额 (USD)</div>
+        </div>
+
+        <div id="records">
+            <div class="record">
+                <span class="record-number">1</span>
+                <input type="number" id="price1" placeholder="价格 (USD)">
+                <input type="number" id="quantity1" placeholder="买入数量">
+                <input type="number" id="amount1" placeholder="成交金额 (USD)">
+                <button class="delete-record" onclick="deleteRecord(this)">删除</button>
+            </div>
+        </div>
+
+        <button class="add-record">+ 添加记录</button>
+
+        <div class="result">
+            <p>买入总金额 (USD): <span id="totalAmount">-</span></p>
+            <p>买入均价 (USD): <span id="averagePrice">-</span></p>
+            <p>止损价格 (USD): <span id="stopLoss">-</span></p>
+        </div>
+    </div>
+
+    <script>
+        let recordCount = 1;
+
+        document.querySelector('.add-record').addEventListener('click', () => {
+            recordCount++;
+            const currency = document.getElementById('currency').value || '';
+            const newRecord = document.createElement('div');
+            newRecord.className = 'record';
+            newRecord.innerHTML = `
+                <span class="record-number">${recordCount}</span>
+                <input type="number" id="price${recordCount}" placeholder="价格 (USD)">
+                <input type="number" id="quantity${recordCount}" placeholder="买入数量${currency ? ` (${currency})` : ''}">
+                <input type="number" id="amount${recordCount}" placeholder="成交金额 (USD)">
+                <button class="delete-record" onclick="deleteRecord(this)">删除</button>
+            `;
+            document.getElementById('records').appendChild(newRecord);
+
+            addEventListeners(recordCount);
+        });
+
+        function deleteRecord(button) {
+            const record = button.parentElement;
+            record.remove();
+            updateRecordNumbers();
+            calculate();
+        }
+
+        function updateRecordNumbers() {
+            const records = document.querySelectorAll('.record');
+            recordCount = records.length;
+            records.forEach((record, index) => {
+                record.querySelector('.record-number').textContent = index + 1;
+            });
+        }
+
+        function addEventListeners(index) {
+            const priceInput = document.getElementById(`price${index}`);
+            const quantityInput = document.getElementById(`quantity${index}`);
+            const amountInput = document.getElementById(`amount${index}`);
+
+            priceInput.addEventListener('input', () => {
+                if (priceInput.value && quantityInput.value) {
+                    amountInput.value = (parseFloat(priceInput.value) * parseFloat(quantityInput.value)).toFixed(8);
+                }
+            });
+
+            quantityInput.addEventListener('input', () => {
+                if (priceInput.value && quantityInput.value) {
+                    amountInput.value = (parseFloat(priceInput.value) * parseFloat(quantityInput.value)).toFixed(8);
+                }
+            });
+
+            amountInput.addEventListener('input', () => {
+                if (priceInput.value && amountInput.value) {
+                    quantityInput.value = (parseFloat(amountInput.value) / parseFloat(priceInput.value)).toFixed(8);
+                }
+            });
+        }
+
+        addEventListeners(1);
+
+        function calculate() {
+            let totalAmount = 0;
+            let totalQuantity = 0;
+            const maxLoss = parseFloat(document.getElementById('maxLoss').value) || 0;
+
+            const records = document.querySelectorAll('.record');
+            records.forEach((record, index) => {
+                const price = parseFloat(record.querySelector(`#price${index + 1}`).value) || 0;
+                const amount = parseFloat(record.querySelector(`#amount${index + 1}`).value) || 0;
+                const quantity = parseFloat((amount / price).toFixed(8)) || 0;
+
+                totalAmount += amount;
+                totalQuantity += quantity;
+            });
+
+            const averagePrice = totalQuantity ? (totalAmount / totalQuantity).toFixed(8) : 0;
+            const stopLoss = maxLoss && totalQuantity ? (averagePrice - maxLoss / totalQuantity).toFixed(8) : '无效';
+
+            document.getElementById('averagePrice').textContent = averagePrice;
+            document.getElementById('stopLoss').textContent = stopLoss;
+            document.getElementById('totalAmount').textContent = totalAmount.toFixed(8);
+        }
+
+        function updateCurrency() {
+            const currency = document.getElementById('currency').value;
+            const records = document.querySelectorAll('.record input[id^="quantity"]');
+            records.forEach((input) => {
+                const placeholder = input.getAttribute('placeholder').split(' ')[0];
+                input.setAttribute('placeholder', `${placeholder} ${currency ? `(${currency})` : ''}`);
+            });
+        }
+
+        document.addEventListener('input', calculate);
+    </script>
+</body>
+</html>
+
