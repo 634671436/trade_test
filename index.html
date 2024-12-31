@@ -215,10 +215,10 @@
             const maxLoss = parseFloat(document.getElementById('maxLoss').value) || 0;
 
             document.querySelectorAll('.record').forEach(record => {
-                const price = parseFloat(record.querySelector('.price').value) || 0;
+                const amount = parseFloat(record.querySelector('.amount').value) || 0;
                 const quantity = parseFloat(record.querySelector('.quantity').value) || 0;
 
-                totalAmount += price * quantity;
+                totalAmount += amount;
                 totalQuantity += quantity;
             });
 
