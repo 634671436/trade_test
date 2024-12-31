@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>现货均价计算器</title>
     <style>
+        /* 样式保持一致 */
         body {
             font-family: Arial, sans-serif;
             margin: 20px;
@@ -40,50 +41,23 @@
             border-radius: 3px;
             font-size: 14px;
         }
-        .header-row {
-            display: flex;
-            margin-bottom: 5px;
-            text-align: center;
-        }
-        .header-row div {
-            flex: 1;
-        }
-        .record {
+        .header-row, .record {
             display: flex;
             align-items: center;
             gap: 10px;
             margin-bottom: 10px;
-            border: 1px dashed #ccc;
-            padding: 10px;
-            border-radius: 5px;
         }
-        .record-number {
-            font-weight: bold;
-            width: 20px;
-        }
-        .record input {
-            flex: 1;
-            padding: 8px;
-            border: 1px solid #ccc;
-            border-radius: 3px;
-            font-size: 14px;
+        .header-row div, .record-number {
             text-align: center;
+            width: 20%;
         }
-        .result {
-            margin-top: 20px;
-            padding: 10px;
-            background: #f9f9f9;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            font-size: 14px;
-        }
-        .result p {
-            font-size: 14px;
-            font-weight: normal;
-        }
-        .result #stopLoss {
-            color: red;
-            font-weight: bold;
+        .delete-record {
+            background: #ff4d4f;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            padding: 5px;
+            cursor: pointer;
         }
         .add-record {
             display: block;
@@ -96,13 +70,19 @@
             border-radius: 5px;
             cursor: pointer;
         }
-        .delete-record {
-            background: #ff4d4f;
-            color: white;
-            border: none;
-            border-radius: 3px;
-            padding: 5px;
-            cursor: pointer;
+        .result {
+            margin-top: 20px;
+            padding: 10px;
+            background: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .result p {
+            margin: 5px 0;
+        }
+        .result #stopLoss {
+            color: red;
+            font-weight: bold;
         }
     </style>
 </head>
@@ -115,26 +95,13 @@
             <input type="text" id="currency" placeholder="请输入币种" oninput="updateCurrency()">
         </div>
 
-        <div class="form-group">
-            <label for="maxLoss">最大承受受损金额 (USD):</label>
-            <input type="number" id="maxLoss" placeholder="请输入最大承受受损金额">
-        </div>
-
         <div class="header-row">
             <div>价格 (USD)</div>
             <div>买入数量</div>
             <div>成交金额 (USD)</div>
         </div>
 
-        <div id="records">
-            <div class="record">
-                <span class="record-number">1</span>
-                <input type="number" id="price1" placeholder="价格 (USD)">
-                <input type="number" id="quantity1" placeholder="买入数量">
-                <input type="number" id="amount1" placeholder="成交金额 (USD)">
-                <button class="delete-record" onclick="deleteRecord(this)">删除</button>
-            </div>
-        </div>
+        <div id="records"></div>
 
         <button class="add-record">+ 添加记录</button>
 
@@ -146,99 +113,98 @@
     </div>
 
     <script>
-        let recordCount = 1;
+        let recordCount = 0;
+        const localStorageKey = 'spotCalculatorRecords';
 
-        document.querySelector('.add-record').addEventListener('click', () => {
+        function loadRecords() {
+            const storedRecords = JSON.parse(localStorage.getItem(localStorageKey)) || [];
+            storedRecords.forEach(record => addRecord(record));
+        }
+
+        function saveRecords() {
+            const records = [];
+            document.querySelectorAll('.record').forEach(record => {
+                records.push({
+                    price: record.querySelector('.price').value,
+                    quantity: record.querySelector('.quantity').value,
+                    amount: record.querySelector('.amount').value,
+                });
+            });
+            localStorage.setItem(localStorageKey, JSON.stringify(records));
+        }
+
+        function addRecord(data = {}) {
             recordCount++;
-            const currency = document.getElementById('currency').value || '';
-            const newRecord = document.createElement('div');
-            newRecord.className = 'record';
-            newRecord.innerHTML = `
-                <span class="record-number">${recordCount}</span>
-                <input type="number" id="price${recordCount}" placeholder="价格 (USD)">
-                <input type="number" id="quantity${recordCount}" placeholder="买入数量${currency ? ` (${currency})` : ''}">
-                <input type="number" id="amount${recordCount}" placeholder="成交金额 (USD)">
+            const record = document.createElement('div');
+            record.className = 'record';
+            record.innerHTML = `
+                <input type="number" class="price" placeholder="价格 (USD)" value="${data.price || ''}">
+                <input type="number" class="quantity" placeholder="买入数量" value="${data.quantity || ''}">
+                <input type="number" class="amount" placeholder="成交金额 (USD)" value="${data.amount || ''}">
                 <button class="delete-record" onclick="deleteRecord(this)">删除</button>
             `;
-            document.getElementById('records').appendChild(newRecord);
+            document.getElementById('records').appendChild(record);
 
-            addEventListeners(recordCount);
-        });
+            addEventListeners(record);
+        }
 
         function deleteRecord(button) {
             const record = button.parentElement;
             record.remove();
-            updateRecordNumbers();
+            saveRecords();
             calculate();
         }
 
-        function updateRecordNumbers() {
-            const records = document.querySelectorAll('.record');
-            recordCount = records.length;
-            records.forEach((record, index) => {
-                record.querySelector('.record-number').textContent = index + 1;
+        function addEventListeners(record) {
+            const price = record.querySelector('.price');
+            const quantity = record.querySelector('.quantity');
+            const amount = record.querySelector('.amount');
+
+            price.addEventListener('input', () => {
+                if (price.value && quantity.value) {
+                    amount.value = (parseFloat(price.value) * parseFloat(quantity.value)).toFixed(8);
+                }
+                saveRecords();
+                calculate();
+            });
+
+            quantity.addEventListener('input', () => {
+                if (price.value && quantity.value) {
+                    amount.value = (parseFloat(price.value) * parseFloat(quantity.value)).toFixed(8);
+                }
+                saveRecords();
+                calculate();
+            });
+
+            amount.addEventListener('input', () => {
+                if (price.value && amount.value) {
+                    quantity.value = (parseFloat(amount.value) / parseFloat(price.value)).toFixed(8);
+                }
+                saveRecords();
+                calculate();
             });
         }
 
-        function addEventListeners(index) {
-            const priceInput = document.getElementById(`price${index}`);
-            const quantityInput = document.getElementById(`quantity${index}`);
-            const amountInput = document.getElementById(`amount${index}`);
-
-            priceInput.addEventListener('input', () => {
-                if (priceInput.value && quantityInput.value) {
-                    amountInput.value = (parseFloat(priceInput.value) * parseFloat(quantityInput.value)).toFixed(8);
-                }
-            });
-
-            quantityInput.addEventListener('input', () => {
-                if (priceInput.value && quantityInput.value) {
-                    amountInput.value = (parseFloat(priceInput.value) * parseFloat(quantityInput.value)).toFixed(8);
-                }
-            });
-
-            amountInput.addEventListener('input', () => {
-                if (priceInput.value && amountInput.value) {
-                    quantityInput.value = (parseFloat(amountInput.value) / parseFloat(priceInput.value)).toFixed(8);
-                }
-            });
-        }
-
-        addEventListeners(1);
+        document.querySelector('.add-record').addEventListener('click', () => {
+            addRecord();
+            saveRecords();
+        });
 
         function calculate() {
             let totalAmount = 0;
             let totalQuantity = 0;
-            const maxLoss = parseFloat(document.getElementById('maxLoss').value) || 0;
-
-            const records = document.querySelectorAll('.record');
-            records.forEach((record, index) => {
-                const price = parseFloat(record.querySelector(`#price${index + 1}`).value) || 0;
-                const amount = parseFloat(record.querySelector(`#amount${index + 1}`).value) || 0;
-                const quantity = parseFloat((amount / price).toFixed(8)) || 0;
-
-                totalAmount += amount;
+            document.querySelectorAll('.record').forEach(record => {
+                const price = parseFloat(record.querySelector('.price').value) || 0;
+                const quantity = parseFloat(record.querySelector('.quantity').value) || 0;
+                totalAmount += price * quantity;
                 totalQuantity += quantity;
             });
 
-            const averagePrice = totalQuantity ? (totalAmount / totalQuantity).toFixed(8) : 0;
-            const stopLoss = maxLoss && totalQuantity ? (averagePrice - maxLoss / totalQuantity).toFixed(8) : '无效';
-
-            document.getElementById('averagePrice').textContent = averagePrice;
-            document.getElementById('stopLoss').textContent = stopLoss;
             document.getElementById('totalAmount').textContent = totalAmount.toFixed(8);
+            document.getElementById('averagePrice').textContent = totalQuantity ? (totalAmount / totalQuantity).toFixed(8) : '-';
         }
 
-        function updateCurrency() {
-            const currency = document.getElementById('currency').value;
-            const records = document.querySelectorAll('.record input[id^="quantity"]');
-            records.forEach((input) => {
-                const placeholder = input.getAttribute('placeholder').split(' ')[0];
-                input.setAttribute('placeholder', `${placeholder} ${currency ? `(${currency})` : ''}`);
-            });
-        }
-
-        document.addEventListener('input', calculate);
+        loadRecords();
     </script>
 </body>
 </html>
